@@ -10,16 +10,21 @@ import UIKit
 
 class ResultVC: UIViewController {
 	
-	@IBOutlet weak var resultLabel: UILabel!
-	@IBOutlet weak var definitionLabel: UILabel!
+	var resultLabel: UILabel!
+	var definitionLabel: UILabel!
 	
 	var results: [AnimalType: Int] = [.dog: 0, .cat: 0, .rabbit: 0, .turtle: 0]
 	var answers = [WhatAnimalYouAreAnswer]()
-
-    override func viewDidLoad() {
-        super.viewDidLoad()
+	
+	override func viewDidLoad() {
+		super.viewDidLoad()
+		setupUI()
+		whatAnimalYouAre()
+	}
+	
+	
+	func whatAnimalYouAre() {
 		for answer in answers {
-		print(answer.type)
 			switch answer.type {
 			case .dog:
 				results[.dog] = results[.dog]! + 1
@@ -37,10 +42,38 @@ class ResultVC: UIViewController {
 				userAnimal = result
 			}
 		}
-		resultLabel.text = "You are \(userAnimal.key.rawValue)"
-		definitionLabel.text = userAnimal.key.definition
-		
-		navigationItem.setHidesBackButton(true, animated: false)
-    }
+		var font = resultLabel.font.withSize(49)
+		resultLabel.attributedText = "You are \(userAnimal.key.rawValue)".makeAttributed(font: font)
+		font = definitionLabel.font.withSize(26)
+		definitionLabel.attributedText = userAnimal.key.definition.makeAttributed(font: font)
+	}
 	
+	func setupUI() {
+		view.backgroundColor = .white
+		setupNavigationBar()
+		resultLabel = UILabel()
+		resultLabel.translatesAutoresizingMaskIntoConstraints = false
+		view.addSubview(resultLabel)
+		resultLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+		resultLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 140).isActive = true
+		
+		definitionLabel = UILabel()
+		definitionLabel.lineBreakMode = .byWordWrapping
+		definitionLabel.textAlignment = .center
+		definitionLabel.numberOfLines = 0
+		definitionLabel.translatesAutoresizingMaskIntoConstraints = false
+		view.addSubview(definitionLabel)
+		definitionLabel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8).isActive = true
+		definitionLabel.centered()
+	}
+	
+	func setupNavigationBar() {
+		self.navigationItem.title = "Quiz result"
+		self.navigationItem.setHidesBackButton(true, animated: false);
+		navigationItem.rightBarButtonItem = UIBarButtonItem(title: "Try again", style: .done, target: self, action: #selector(donePressed))
+	}
+	
+	@objc func donePressed(_ sender: UIBarButtonItem) {
+		self.dismiss(animated: true, completion: nil)
+	}
 }

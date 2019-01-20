@@ -8,15 +8,17 @@
 
 import UIKit
 
-class QuestionVC: UIViewController {
+import UIKit
+
+class QuestionsVC: UIViewController {
 	
-	// MARK: - IBOutlet properties
-	@IBOutlet weak var singleStackView: UIStackView!
-	@IBOutlet weak var multipleStackView: UIStackView!
-	@IBOutlet weak var rangerStackView: UIStackView!
-	@IBOutlet weak var questionLabel: UILabel!
-	@IBOutlet weak var progressBar: UIProgressView!
-	@IBOutlet weak var slider: UISlider!
+	let questionFontSize: CGFloat = 26
+	let answersFontSize: CGFloat = 17
+	
+	var answersStackView: UIStackView!
+	var questionLabel: UILabel!
+	var progressBar: UIProgressView!
+	var answerButton: UIButton!
 	
 	var questions: [Question] = [
 		Question(text: "What do you prefer to eat?", type: .single, answers: [
@@ -35,104 +37,148 @@ class QuestionVC: UIViewController {
 			WhatAnimalYouAreAnswer(text: "I don't notice it", type: .turtle),
 			WhatAnimalYouAreAnswer(text: "I love it!", type: .dog)]),
 		]
-	var outerIndex = 0
-	
-	var answers = [WhatAnimalYouAreAnswer]()
-	
-	lazy var step: Float = 1.0 / Float(questions.count)
-	
 	var questionIndex = 0 {
 		didSet {
 			if questionIndex == questions.count {
-				performSegue(withIdentifier: "ShowResult", sender: nil)
+				let resultVC = ResultVC()
+				navigationController?.pushViewController(resultVC, animated: true)
+				resultVC.answers = answers
 				questionIndex = 0
 			}
 			updateUI()
 		}
 	}
+	var outerIndex = 0
+	
+	var answers = [WhatAnimalYouAreAnswer]()
+	lazy var step: Float = 1.0 / Float(questions.count)
 	
 	override func viewDidLoad() {
 		super.viewDidLoad()
+		view.backgroundColor = .white
+		self.title = "Questions"
 		updateUI()
-		
 	}
 	
-	// MARK: - Methods
+	override func viewDidDisappear(_ animated: Bool) {
+		//view.removeFromSuperview()
+	}
 	
 	func updateUI() {
-		singleStackView.isHidden = true
-		multipleStackView.isHidden = true
-		rangerStackView.isHidden = true
+		progressBar = UIProgressView(progressViewStyle: .default)
+		view.addSubview(progressBar)
+		progressBar.tintColor = .blue
+		progressBar.translatesAutoresizingMaskIntoConstraints = false
+		progressBar.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+		progressBar.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -40).isActive = true
+		progressBar.widthAnchor.constraint(equalToConstant: view.frame.width - 40).isActive = true
+		progressBar.setProgress(step * Float(questionIndex + 1), animated: true)
 		
 		navigationItem.title = "Question #\(questionIndex + 1)"
-		questionLabel.text = questions[questionIndex].text
+		if questionLabel == nil {
+			questionLabel = UILabel()
+			view.addSubview(questionLabel)
+			questionLabel.numberOfLines = 0
+			questionLabel.textAlignment = .center
+			questionLabel.lineBreakMode = .byWordWrapping
+			questionLabel.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.95).isActive = true
+			questionLabel.translatesAutoresizingMaskIntoConstraints = false
+			questionLabel.centerXAnchor.constraint(equalTo: view.centerXAnchor).isActive = true
+			questionLabel.topAnchor.constraint(equalTo: view.topAnchor, constant: 110).isActive = true
+			questionLabel.textAlignment = .center
+		}
 		
-		progressBar.progress = step * Float(questionIndex)
+		
+		if answersStackView != nil {
+			//®answersStackView.clear()
+			answersStackView.removeFromSuperview()
+		}
+		
+		let font  = questionLabel.font.withSize(questionFontSize)
+		questionLabel.attributedText = questions[questionIndex].text.makeAttributed(font: font)
 		
 		let question = questions[questionIndex]
 		
 		switch question.type{
 		case .single:
-			singleStackView.isHidden = false
-			showSingleAnswerQuestion(on: singleStackView)
+			answersStackView = UIStackView(arrangedSubviews: fillStackWithButtons())
+			view.addSubview(answersStackView)
+			answersStackView.setup()
+			
 		case .multiple:
 			outerIndex = 0
-			multipleStackView.isHidden = false
-			showMultipleAnswerQuestion(on: multipleStackView, outerIndex: &outerIndex)
+			answersStackView = UIStackView(arrangedSubviews: fillStackWithLabels())
+			view.addSubview(answersStackView)
+			
+			for subview in answersStackView.subviews {
+				subview.widthAnchor.constraint(equalTo: answersStackView.widthAnchor, multiplier: 1).isActive = true
+			}
+			
+			answerButton = makeButton(with: "Answer")
+			answersStackView.addArrangedSubview(answerButton)
+			answersStackView.setup()
 			
 		case .ranged:
-			rangerStackView.isHidden = false
-			showRangedAnswerQuestion(on: rangerStackView)
+			answersStackView = showRangedAnswerQuestion()
+			view.addSubview(answersStackView)
+			answersStackView.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.8)
+			answerButton = makeButton(with: "Answer")
+			answersStackView.addArrangedSubview(answerButton)
+			answersStackView.setup()
 		}
 	}
 	
-	func showSingleAnswerQuestion(on view: UIStackView) {
-		let maxIndex = questions[questionIndex].answers.count
-		for (index, view) in view.subviews.enumerated(){
-			guard index < maxIndex else { break }
-			if let button = view as? UIButton {
-				button.setTitle(questions[questionIndex].answers[index].text, for: [])
-			}
+	func makeButton(with title: String) -> UIButton {
+		let button = UIButton()
+		button.setup()
+		button.setTitle(title, for: .normal)
+		button.addTarget(self, action: #selector(questionAnswered(_:)), for: .touchUpInside)
+		return button
+	}
+	
+	func fillStackWithButtons() -> [UIButton] {
+		return questions[questionIndex].answers.map { answer in
+			let button = makeButton(with: answer.text)
+			return button
 		}
 	}
 	
-	func showMultipleAnswerQuestion(on view: UIStackView, outerIndex: inout Int) {
-		let maxIndex = questions[questionIndex].answers.count
-		for (index, view) in view.subviews.enumerated(){
-			guard index < maxIndex else { break }
-			if let label = view as? UILabel {
-				label.text = questions[questionIndex].answers[outerIndex].text
-			} else if let stack = view as? UIStackView {
-				showMultipleAnswerQuestion(on: stack, outerIndex: &outerIndex)
-				outerIndex += 1
-			}
+	func fillStackWithLabels() -> [UIStackView] {
+		return questions[questionIndex].answers.map { answer in
+			let label = UILabel()
+			let font = label.font.withSize(answersFontSize)
+			label.attributedText = answer.text.makeAttributed(font: font)
+			label.translatesAutoresizingMaskIntoConstraints = false
+			label.heightAnchor.constraint(equalToConstant: 21).isActive = true
+			let switcher = UISwitch()
+			switcher.isOn = false
+			let stackView = UIStackView(arrangedSubviews: [label, switcher])
+			stackView.axis = .horizontal
+			stackView.distribution = .fill
+			return stackView
 		}
 	}
 	
-	func showRangedAnswerQuestion(on view: UIStackView) {
-		let maxIndex = questions[questionIndex].answers.count
-		for (index, view) in view.subviews.enumerated(){
-			guard index < maxIndex else { break }
-			if let label = view as? UILabel {
-				switch index {
-				case 0:
-					label.text = questions[questionIndex].answers[index].text
-				case 1:
-					label.text = questions[questionIndex].answers.last!.text
-				default:
-				break
-				}
-			} else if let stack = view as? UIStackView {
-				showRangedAnswerQuestion(on: stack)
-				outerIndex += 1
-			}
-		}
+	func showRangedAnswerQuestion() -> UIStackView {
+		let minLabel = UILabel()
+		let font = minLabel.font.withSize(answersFontSize)
+		minLabel.attributedText = questions[questionIndex].answers.first!.text.makeAttributed(font: font)
+		let maxLabel = UILabel()
+		maxLabel.attributedText = questions[questionIndex].answers.last!.text.makeAttributed(font: font)
+		let stackView = UIStackView(arrangedSubviews: [minLabel, maxLabel])
+		let slider = UISlider()
+		slider.translatesAutoresizingMaskIntoConstraints = false
+		slider.tintColor = .blue
+		slider.minimumValue = 0; slider.maximumValue = 1
+		slider.addTarget(self, action: #selector(sliderChanged(_:)), for: .valueChanged)
+		return UIStackView(arrangedSubviews: [stackView, slider])
 	}
 	
 	func readAnswer(from button: UIButton) {
 		for answer in questions[questionIndex].answers {
 			if button.currentTitle == answer.text {
 				answers.append(answer)
+				print(answer.text)
 			}
 		}
 	}
@@ -146,50 +192,33 @@ class QuestionVC: UIViewController {
 			let answer = question.answers[outerIndex]
 			switch view {
 			case is UISwitch:
-
 				let switcher = view as! UISwitch
 				if switcher.isOn {
 					answers.append(answer)
 				}
 			case is UISlider:
-				print("slider")
-			case is UILabel:
-				print("label")
+				let slider = view as! UISlider
+				let answerIndex = Int((Float(questions[questionIndex].answers.count - 1) * slider.value))
+				answers.append(questions[questionIndex].answers[answerIndex])
+				print(questions[questionIndex].answers[answerIndex].text)
+				//case is UILabel:
+			//	print("label")
 			case is UIStackView:
 				getAnswer(for: question, from: view as! UIStackView, outerIndex: &outerIndex)
 				outerIndex += 1
 			default:
-				print("none")
 				break
 			}
 		}
-		
 	}
 	
-	func readAnswer(from slider: UISlider) {
-		let answerIndex = Int((Float(questions[questionIndex].answers.count - 1) * slider.value))
-		answers.append(questions[questionIndex].answers[answerIndex])
-	}
-
-	// MARK: - Navigation
-	
-	// In a storyboard-based application, you will often want to do a little preparation before navigation
-	override func prepare(for segue: UIStoryboardSegue, sender: Any?) {
-		if segue.identifier == "ShowResult" {
-			if let DVC = segue.destination as? ResultVC {
-				DVC.answers = answers
-			}
-		}
-		answers.removeAll()
-	}
-
-	// MARK: - IBAction methods
-	@IBAction func sliderChanged(_ sender: UISlider) {
+	@objc func sliderChanged(_ sender: UISlider) {
 		let roundedValue = round(sender.value / step) * step
 		sender.setValue(roundedValue, animated: true)
 	}
 	
-	@IBAction func questionAnswered(_ sender: UIButton) {
+	@objc func questionAnswered(_ sender: UIButton) {
+		
 		defer {
 			questionIndex += 1
 		}
@@ -200,10 +229,34 @@ class QuestionVC: UIViewController {
 			readAnswer(from: sender)
 		case .multiple:
 			outerIndex = 0
-			getAnswer(for: question, from: multipleStackView, outerIndex: &outerIndex)
+			getAnswer(for: question, from: answersStackView, outerIndex: &outerIndex)
 		case .ranged:
-			readAnswer(from: slider)
+			outerIndex = 0
+			getAnswer(for: question, from: answersStackView, outerIndex: &outerIndex)
 		}
 	}
+}
+
+extension UIStackView {
 	
+	func setup() {
+		self.translatesAutoresizingMaskIntoConstraints = false
+		self.axis = .vertical
+		self.spacing = 20
+		self.distribution = .fill
+		guard let view = superview else { return }
+		self.centered()
+		self.widthAnchor.constraint(equalTo: view.widthAnchor, multiplier: 0.7).isActive = true
+	}
+}
+
+extension UIButton {
+	func setup() {
+		self.translatesAutoresizingMaskIntoConstraints = false
+		self.setTitleColor(.white, for: .normal)
+		self.backgroundColor = .blue
+		self.layer.cornerRadius = 7
+		self.layer.masksToBounds = true
+		self.heightAnchor.constraint(equalToConstant: 30).isActive = true
+	}
 }

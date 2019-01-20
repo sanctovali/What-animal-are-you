@@ -6,7 +6,6 @@
 //  Copyright © 2018 Valentin Kiselev. All rights reserved.
 //
 
-
 struct Question {
 	var text: String
 	var type: ResponseType
